@@ -8,7 +8,7 @@
 ﻿(function($){
 	$.fn.sparkdown = function(tools){
 		// Default the tools
-		tools = tools || 'bold italic underline | h1 h2 h3 | ol li | img url | code'
+		tools = tools || 'bold italic | h1 h2 h3 | ol li | img url | code'
 		tools = tools.split(' ');
 		// Create a toolbar
 		var toolbar = $('<div class="sparkdown-toolbar" />');
@@ -24,8 +24,27 @@
 			// Find the textarea
 			var te = $(this).closest('.sparkdown').find('textarea');
 			// Do something here
-			console.log(te.caret().replace('[[TESTING]]'));
 			console.log(action, te.caret());
+
+			// I want *something* to happen while I figure this out
+			var caret = te.caret();
+			// Wrap the selection in **
+			te.val(caret.replace('**' + caret.text + '**'));
+			// Re-select
+			te.caret({ start: (caret.start+2) ,end: (caret.end+2) });
+			return false;
+			/*
+				LOGIC
+					I think I should do it in the old regex style of DFACE / DCODE / DLITE...
+
+				3rd party... Not sure how much I like these methods TBH...
+					Bold & Italic (toggle)
+						See:	http://code.google.com/p/pagedown/source/browse/Markdown.Editor.js
+									commandProto.doBold
+				    				commandProto.doItalic
+				    				commandProto.doBorI
+			*/
+
 		});
 		// Loop the textarea / elements
     	return this.each(function(){
