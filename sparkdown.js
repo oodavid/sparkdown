@@ -8,7 +8,7 @@
 ﻿(function($){
 	$.fn.sparkdown = function(tools){
 		// Default the tools
-		tools = tools || 'bold italic | h1 h2 h3 | ol li | img url | code'
+		tools = tools || 'bold italic | h1 h2 h3 | ul ol | img url | code | hr | help | preview'
 		tools = tools.split(' ');
 		// Create a toolbar
 		var toolbar = $('<div class="sparkdown-toolbar" />');
@@ -23,15 +23,133 @@
 			var action = $(this).attr('data-sparkdown-action');
 			// Find the textarea
 			var te = $(this).closest('.sparkdown').find('textarea');
-			// Do something here
-			console.log(action, te.caret());
-
-			// I want *something* to happen while I figure this out
-			var caret = te.caret();
-			// Wrap the selection in **
-			te.val(caret.replace('**' + caret.text + '**'));
-			// Re-select
-			te.caret({ start: (caret.start+2) ,end: (caret.end+2) });
+			//
+			// Break up the selection into parts
+			//
+				var parts = {
+					before:		te.val().substring(0, te.caret().start),
+					selection:	te.caret().text,
+					after:		te.val().substring(te.caret().end)
+				};
+			//
+			// Do something to the parts
+			//
+				var marks = false;
+				switch(action){
+					//
+					// Bold and italic just deal with the immediate selection
+					//
+					case 'bold':
+						// Bold marks
+						marks = '**';
+					case 'italic':
+						// Italic marks
+						marks = marks || '*';
+						// We can either wrap, or unwrap, check before and after for the marks string
+						var wrapbefore	= parts.before.substr(-marks.length)	== marks;
+						var wrapafter	= parts.after.substr(0, marks.length)	== marks;
+						if(wrapbefore && wrapafter){
+							// Unwrap
+							parts.before	= parts.before.substr(0, (parts.before.length-marks.length));
+							parts.after		= parts.after.substr(marks.length);
+						} else {
+							// Wrap
+							parts.before += marks;
+							parts.after   = marks + parts.after;
+						}
+						// Done
+						break;
+					//
+					// Headings, Lists and Code deal with the immediate selection and (possibly) the line-break beforehand
+					//
+					case 'h1':
+						// h1 marks
+						marks = '# ';
+					case 'h2':
+						// h2 marks
+						marks = marks || '## ';
+					case 'h3':
+						// h3 marks
+						marks = marks || '### ';
+					case 'ul':
+						// ul marks
+						marks = marks || '* ';
+					case 'ol':
+						// ol marks
+						marks = marks || '1. ';
+					case 'code':
+						// code marks
+						marks = marks || '    ';
+						// Prefix the selection with one of: # ## ### * 1.
+						console.log('TODO\n\nIn the selection, replace all \\n with \\n' + marks + '\nIf the selection DOESNT begin with a \\n...\n    Replace the last \\n before the selection with a \\n' + marks);
+						// Done
+						break;
+					//
+					// Images and URLs replace the immediate selection
+					//
+					case 'img':
+						// Grab a URL
+						if(url=prompt('Image URL', 'http://')){
+							parts.selection = '![' + parts.selection + '](' + url + ')';
+						}
+						// Done
+						break;
+					case 'url':
+						// Grab a URL
+						if(url=prompt('Link URL', 'http://')){
+							parts.selection = '[' + parts.selection + '](' + url + ')';
+						}
+						// Done
+						break;
+					//
+					// Insert a horizontal rule...
+					//
+					case 'hr':
+						// Simples
+						parts.selection = '\n\n------\n\n';
+						// Done
+						break;
+					//
+					// Help just opens the documentation page
+					//
+					case 'help':
+						// Simples
+						window.open('http://daringfireball.net/projects/markdown/syntax');
+						// Done
+						break;
+					//
+					// Preview should swap out the textarea for a preview box
+					//
+					case 'preview':
+						console.log('Check for showdown... if it\'s there then use it, otherwise we must alert and exit');
+						// Find the preview
+						var preview = $(this).closest('.sparkdown').find('.sparkdown-preview');
+						// Is it visible?
+						if(preview.css('display') == 'block'){
+							// Hide it
+							preview.hide();
+							// Re-focus the textarea
+							te.focus();
+						} else {
+							// Convert the markdown and inject it
+							converter = new Showdown.converter();
+							html = converter.makeHtml(te.val());
+							preview.html(html);
+							// Show it
+							preview.show();
+						}
+						// Really Done
+						return false;
+				}
+			//
+			// Updating the textarea
+			//
+				// Set the value
+				te.val(parts.before + parts.selection + parts.after);
+				// Re-select
+				var start = parts.before.length;
+				var end   = start + parts.selection.length;
+				te.caret({ start: start, end: end });
 			return false;
 			/*
 				LOGIC
@@ -53,78 +171,8 @@
     		// Clone the sparkdown toolbar and add it to the element
     		var toolbarclone = toolbar.clone(true);
     		$(this).parent().prepend(toolbarclone);
+    		// Add a preview DIV (hidden)
+    		$(this).parent().append($('<div class="sparkdown-preview" />').css('display', 'none'));
     	});
 	};
 })(jQuery);
-
-/**
- * jQuery Caret Plugin
- * 
- * @author      C. F. Wong
- * @url         http://www.examplet.buss.hk/jquery/caret.php
- * @license     MIT http://www.opensource.org/licenses/mit-license.php
- */
-﻿(function($,len,createRange,duplicate){
-	$.fn.caret=function(options,opt2){
-		var start,end,t=this[0],browser=$.browser.msie;
-		if(typeof options==="object" && typeof options.start==="number" && typeof options.end==="number") {
-			start=options.start;
-			end=options.end;
-		} else if(typeof options==="number" && typeof opt2==="number"){
-			start=options;
-			end=opt2;
-		} else if(typeof options==="string"){
-			if((start=t.value.indexOf(options))>-1) end=start+options[len];
-			else start=null;
-		} else if(Object.prototype.toString.call(options)==="[object RegExp]"){
-			var re=options.exec(t.value);
-			if(re != null) {
-				start=re.index;
-				end=start+re[0][len];
-			}
-		}
-		if(typeof start!="undefined"){
-			if(browser){
-				var selRange = this[0].createTextRange();
-				selRange.collapse(true);
-				selRange.moveStart('character', start);
-				selRange.moveEnd('character', end-start);
-				selRange.select();
-			} else {
-				this[0].selectionStart=start;
-				this[0].selectionEnd=end;
-			}
-			this[0].focus();
-			return this
-		} else {
-			// Modification as suggested by Андрей Юткин
-			if(browser){
-				var selection=document.selection;
-				if (this[0].tagName.toLowerCase() != "textarea") {
-					var val = this.val(),
-					range = selection[createRange]()[duplicate]();
-					range.moveEnd("character", val[len]);
-					var s = (range.text == "" ? val[len]:val.lastIndexOf(range.text));
-					range = selection[createRange]()[duplicate]();
-					range.moveStart("character", -val[len]);
-					var e = range.text[len];
-				} else {
-					var range = selection[createRange](),
-					stored_range = range[duplicate]();
-					stored_range.moveToElementText(this[0]);
-					stored_range.setEndPoint('EndToEnd', range);
-					var s = stored_range.text[len] - range.text[len],
-					e = s + range.text[len]
-				}
-			// End of Modification
-			} else {
-				var s=t.selectionStart,
-					e=t.selectionEnd;
-			}
-			var te=t.value.substring(s,e);
-			return {start:s,end:e,text:te,replace:function(st){
-				return t.value.substring(0,s)+st+t.value.substring(e,t.value[len])
-			}}
-		}
-	}
-})(jQuery,"length","createRange","duplicate");
